@@ -1,178 +1,252 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ghost Terminal</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SILENT CALIBER</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #050505;
+            color: #22c55e;
+            font-family: 'JetBrains Mono', monospace;
+            overflow: hidden;
+            user-select: none;
+        }
 
-<!-- Fonts -->
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600&display=swap" rel="stylesheet">
+        #game-canvas {
+            filter: contrast(1.2) brightness(0.9) saturate(0.5);
+        }
 
-<!-- Tailwind -->
-<script src="https://cdn.tailwindcss.com"></script>
+        .crt-overlay {
+            position: fixed;
+            inset: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%),
+                        linear-gradient(90deg, rgba(255, 0, 0, 0.02), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.02));
+            background-size: 100% 3px, 3px 100%;
+            pointer-events: none;
+            z-index: 100;
+        }
 
-<!-- Marked.js -->
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+        .vignette {
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(circle, transparent 30%, rgba(0,0,0,0.9) 120%);
+            pointer-events: none;
+            z-index: 90;
+        }
 
-<!-- Highlight.js -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+        .hud-scanline {
+            animation: scan 8s linear infinite;
+        }
 
-<style>
-body {
-  background:#050505;
-  color:#00ff9c;
-  font-family:'JetBrains Mono', monospace;
-}
+        @keyframes scan {
+            from { transform: translateY(-100%); }
+            to { transform: translateY(100%); }
+        }
 
-.scanlines::after {
-  content:"";
-  position:fixed;
-  top:0;left:0;width:100%;height:100%;
-  background:repeating-linear-gradient(
-    to bottom,
-    rgba(0,255,156,0.03),
-    rgba(0,255,156,0.03) 1px,
-    transparent 1px,
-    transparent 3px
-  );
-  pointer-events:none;
-}
-
-.cursor::after {
-  content:"_";
-  animation:blink 1s infinite;
-}
-
-@keyframes blink {
-  0%,50%,100% {opacity:1}
-  25%,75% {opacity:0}
-}
-
-.panel {
-  border:1px solid #1a1a1a;
-}
-
-button:hover {
-  background:#00ff9c;
-  color:#000;
-}
-</style>
+        .muzzle-flash {
+            position: fixed;
+            inset: 0;
+            background: white;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 80;
+        }
+    </style>
 </head>
+<body>
 
-<body class="scanlines">
-<div class="p-4 max-w-5xl mx-auto">
+    <div class="crt-overlay"></div>
+    <div class="vignette"></div>
+    <div id="flash" class="muzzle-flash"></div>
 
-<!-- Header -->
-<div class="flex justify-between items-center mb-4">
-  <div>GHOST_TERMINAL v1.0</div>
-  <button id="purge" class="border px-2 py-1">PURGE_KEY</button>
-</div>
+    <div class="fixed top-8 left-8 z-[110] opacity-60">
+        <div class="text-[10px] tracking-[0.4em] uppercase mb-2">System Status: Active</div>
+        <div class="h-[2px] w-32 bg-white/10 relative overflow-hidden">
+            <div id="health-bar" class="h-full bg-green-500 w-full transition-all duration-500"></div>
+            <div class="hud-scanline absolute inset-0 bg-white/20 w-full h-[1px]"></div>
+        </div>
+    </div>
 
-<!-- Output -->
-<div id="output" class="panel h-[60vh] overflow-y-auto p-3 mb-4 text-sm"></div>
+    <div class="fixed bottom-8 right-8 z-[110] text-right">
+        <div id="weapon-name" class="text-xl font-black italic uppercase tracking-tighter text-white/80">M16A4</div>
+        <div class="flex justify-end gap-1 mt-2" id="ammo-pips">
+            </div>
+        <div class="text-[10px] mt-2 text-white/30 uppercase tracking-widest">Caliber: 5.56x45mm</div>
+    </div>
 
-<!-- Input -->
-<textarea id="input" class="w-full panel p-2 h-24 resize-none" placeholder="Type your command..."></textarea>
+    <div class="fixed bottom-8 left-8 z-[110] opacity-40 text-[10px]">
+        [1] M16A4 - BURST<br>
+        [2] FIVE-SEVEN - SEMI<br>
+        [R] RELOAD<br>
+        [CLICK] FIRE
+    </div>
 
-<div class="flex justify-between mt-2">
-  <div id="status">STATUS: IDLE</div>
-  <button id="send" class="border px-4 py-1">SEND</button>
-</div>
+    <canvas id="game-canvas"></canvas>
 
-</div>
+    <script>
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+        const flashEl = document.getElementById('flash');
+        
+        let width, height;
+        let mouseX = 0, mouseY = 0;
+        let weaponX = 0, weaponY = 0;
+        
+        // Game State
+        const state = {
+            weapon: 'M16A4',
+            ammo: { 'M16A4': 30, 'Five-seveN': 20 },
+            maxAmmo: { 'M16A4': 30, 'Five-seveN': 20 },
+            isFiring: false,
+            lastFire: 0
+        };
 
-<script>
-const output = document.getElementById('output');
-const input = document.getElementById('input');
-const sendBtn = document.getElementById('send');
-const statusEl = document.getElementById('status');
-const purgeBtn = document.getElementById('purge');
+        function init() {
+            resize();
+            createForest();
+            renderAmmo();
+            loop();
+        }
 
-function getKey() {
-  let key = localStorage.getItem('ghost_key');
-  if (!key) {
-    key = prompt('ENTER OPENROUTER API KEY');
-    if (key) localStorage.setItem('ghost_key', key);
-  }
-  return key;
-}
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            weaponX = width / 2;
+            weaponY = height / 2;
+        }
 
-purgeBtn.onclick = () => {
-  localStorage.removeItem('ghost_key');
-  alert('KEY PURGED');
-};
+        const trees = [];
+        function createForest() {
+            for(let i=0; i<60; i++) {
+                trees.push({
+                    x: Math.random() * width,
+                    y: Math.random() * height,
+                    size: Math.random() * 100 + 50,
+                    opacity: Math.random() * 0.5 + 0.1
+                });
+            }
+        }
 
-function appendMessage(role, content) {
-  const div = document.createElement('div');
-  div.className = 'mb-3';
+        function renderAmmo() {
+            const container = document.getElementById('ammo-pips');
+            container.innerHTML = '';
+            const count = state.ammo[state.weapon];
+            for(let i=0; i < count; i++) {
+                const pip = document.createElement('div');
+                pip.className = 'w-[3px] h-4 bg-green-500/60 shadow-[0_0_8px_rgba(34,197,94,0.4)]';
+                container.appendChild(pip);
+            }
+        }
 
-  if (role === 'user') {
-    div.textContent = '> ' + content;
-  } else {
-    div.innerHTML = marked.parse(content);
-    div.querySelectorAll('pre code').forEach(block => {
-      hljs.highlightElement(block);
-    });
-  }
+        function fire() {
+            const now = Date.now();
+            if (state.ammo[state.weapon] <= 0) return;
 
-  output.appendChild(div);
-  output.scrollTop = output.scrollHeight;
-}
+            if (state.weapon === 'M16A4') {
+                if (now - state.lastFire < 600) return; // Burst delay
+                state.lastFire = now;
+                
+                // 3 Round Burst Logic
+                for(let i=0; i<3; i++) {
+                    setTimeout(() => {
+                        if(state.ammo['M16A4'] > 0) {
+                            state.ammo['M16A4']--;
+                            triggerEffects(15);
+                            renderAmmo();
+                        }
+                    }, i * 80);
+                }
+            } else {
+                if (now - state.lastFire < 150) return;
+                state.lastFire = now;
+                state.ammo['Five-seveN']--;
+                triggerEffects(8);
+                renderAmmo();
+            }
+        }
 
-async function sendMessage() {
-  const text = input.value.trim();
-  if (!text) return;
+        function triggerEffects(recoil) {
+            weaponY += recoil; // Mechanical Kick
+            flashEl.style.opacity = '0.3';
+            setTimeout(() => flashEl.style.opacity = '0', 40);
+            
+            // Screen shake
+            canvas.style.transform = `translate(${(Math.random()-0.5)*10}px, ${(Math.random()-0.5)*10}px)`;
+            setTimeout(() => canvas.style.transform = 'translate(0,0)', 50);
+        }
 
-  appendMessage('user', text);
-  input.value = '';
+        function loop() {
+            // Draw Background
+            ctx.fillStyle = '#050605';
+            ctx.fillRect(0, 0, width, height);
 
-  statusEl.textContent = 'STATUS: TUNNELING...';
+            // Interpolate Weapon Position (Inertia)
+            weaponX += (mouseX - weaponX) * 0.08;
+            weaponY += (mouseY - weaponY) * 0.08;
 
-  const key = getKey();
+            // Draw Forest (Simple atmospheric shapes)
+            trees.forEach(tree => {
+                ctx.fillStyle = `rgba(10, 20, 10, ${tree.opacity})`;
+                ctx.fillRect(tree.x - (weaponX*0.05), tree.y - (weaponY*0.05), tree.size/4, tree.size);
+            });
 
-  try {
-    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': 'Bearer ' + key,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': window.location.origin
-      },
-      body: JSON.stringify({
-        model: 'openrouter/auto',
-        messages: [{ role: 'user', content: text }]
-      })
-    });
+            // Draw Weapon Silhouette
+            ctx.save();
+            ctx.translate(weaponX, weaponY);
+            
+            // The Gun "Shadow"
+            ctx.fillStyle = '#0a0a0a';
+            if (state.weapon === 'M16A4') {
+                ctx.fillRect(20, 40, 300, 40); // Barrel
+                ctx.fillRect(0, 20, 100, 80);  // Body
+            } else {
+                ctx.fillRect(10, 20, 120, 35); // Five-seven slide
+                ctx.fillRect(10, 20, 40, 90);  // Grip
+            }
+            
+            // Iron Sights / Laser
+            ctx.fillStyle = 'rgba(255, 0, 0, 0.2)';
+            ctx.beginPath();
+            ctx.arc(0, 0, 2, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.restore();
 
-    if (!res.ok) {
-      const err = await res.text();
-      appendMessage('assistant', 'ERROR: ' + err);
-      statusEl.textContent = 'STATUS: ERROR';
-      return;
-    }
+            requestAnimationFrame(loop);
+        }
 
-    const data = await res.json();
-    const reply = data.choices[0].message.content;
+        // Listeners
+        window.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+        });
 
-    appendMessage('assistant', reply);
-    statusEl.textContent = 'STATUS: IDLE';
+        window.addEventListener('mousedown', fire);
 
-  } catch (e) {
-    appendMessage('assistant', 'NETWORK FAILURE');
-    statusEl.textContent = 'STATUS: ERROR';
-  }
-}
+        window.addEventListener('keydown', (e) => {
+            if (e.key === '1') {
+                state.weapon = 'M16A4';
+                document.getElementById('weapon-name').innerText = 'M16A4';
+                renderAmmo();
+            }
+            if (e.key === '2') {
+                state.weapon = 'Five-seveN';
+                document.getElementById('weapon-name').innerText = 'Five-seveN';
+                renderAmmo();
+            }
+            if (e.key.toLowerCase() === 'r') {
+                state.ammo[state.weapon] = state.maxAmmo[state.weapon];
+                renderAmmo();
+            }
+        });
 
-sendBtn.onclick = sendMessage;
-
-input.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault();
-    sendMessage();
-  }
-});
-</script>
-
+        window.addEventListener('resize', resize);
+        init();
+    </script>
 </body>
 </html>

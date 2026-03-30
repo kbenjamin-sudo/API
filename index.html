@@ -1,135 +1,178 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NEURAL_INTERFACE // V.1.0</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;500;800&display=swap" rel="stylesheet">
-    <style>
-        body { background: #050505; color: #d1d1d1; font-family: 'JetBrains Mono', monospace; overflow: hidden; }
-        .grain { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: url('https://grainy-gradients.vercel.app/noise.svg'); opacity: 0.03; pointer-events: none; z-index: 50; }
-        .terminal-shadow { box-shadow: 0 0 50px rgba(0,0,0,1), 0 0 20px rgba(255,255,255,0.02); }
-        .scroll-hide::-webkit-scrollbar { display: none; }
-        .user-msg { background: rgba(255,255,255,0.05); border-right: 2px solid rgba(255,255,255,0.3); }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ghost Terminal</title>
+
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600&display=swap" rel="stylesheet">
+
+<!-- Tailwind -->
+<script src="https://cdn.tailwindcss.com"></script>
+
+<!-- Marked.js -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+<!-- Highlight.js -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
+<style>
+body {
+  background:#050505;
+  color:#00ff9c;
+  font-family:'JetBrains Mono', monospace;
+}
+
+.scanlines::after {
+  content:"";
+  position:fixed;
+  top:0;left:0;width:100%;height:100%;
+  background:repeating-linear-gradient(
+    to bottom,
+    rgba(0,255,156,0.03),
+    rgba(0,255,156,0.03) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  pointer-events:none;
+}
+
+.cursor::after {
+  content:"_";
+  animation:blink 1s infinite;
+}
+
+@keyframes blink {
+  0%,50%,100% {opacity:1}
+  25%,75% {opacity:0}
+}
+
+.panel {
+  border:1px solid #1a1a1a;
+}
+
+button:hover {
+  background:#00ff9c;
+  color:#000;
+}
+</style>
 </head>
-<body class="h-screen flex items-center justify-center p-4">
-    <div class="grain"></div>
 
-    <div class="w-full max-w-5xl h-[85vh] bg-[#0a0a0a] border border-white/10 terminal-shadow flex flex-col relative">
-        <div class="flex items-center justify-between px-6 py-3 border-b border-white/5 bg-white/[0.02]">
-            <div class="flex items-center gap-4">
-                <div class="flex gap-1.5">
-                    <div class="w-2.5 h-2.5 rounded-full bg-red-900/50"></div>
-                    <div class="w-2.5 h-2.5 rounded-full bg-orange-900/50"></div>
-                    <div class="w-2.5 h-2.5 rounded-full bg-green-900/50"></div>
-                </div>
-                <span class="text-[10px] tracking-[0.3em] text-white/30 font-bold uppercase">OpenRouter Node // Vercel_Deploy</span>
-            </div>
-            <button onclick="resetKey()" class="text-[10px] text-white/20 hover:text-red-500 transition-colors uppercase italic">[ Purge_Key ]</button>
-        </div>
+<body class="scanlines">
+<div class="p-4 max-w-5xl mx-auto">
 
-        <div id="output" class="flex-grow overflow-y-auto p-8 space-y-6 scroll-hide">
-            <div class="opacity-40 text-xs">
-                > INITIALIZING SECURE_CHANNEL...<br>
-                > STATUS: <span id="keyStatus" class="text-orange-500 underline">AWAITING_AUTH</span>
-            </div>
-        </div>
+<!-- Header -->
+<div class="flex justify-between items-center mb-4">
+  <div>GHOST_TERMINAL v1.0</div>
+  <button id="purge" class="border px-2 py-1">PURGE_KEY</button>
+</div>
 
-        <div class="p-6 bg-white/[0.01] border-t border-white/5">
-            <div class="flex items-start gap-4">
-                <span class="text-white/40 mt-1">⫸</span>
-                <textarea id="userInput" 
-                    class="w-full bg-transparent border-none outline-none resize-none text-white placeholder:text-white/10 leading-relaxed" 
-                    rows="1" placeholder="Type command..."
-                    onkeydown="handleKey(event)"></textarea>
-            </div>
-        </div>
-    </div>
+<!-- Output -->
+<div id="output" class="panel h-[60vh] overflow-y-auto p-3 mb-4 text-sm"></div>
 
-    <script>
-        let API_KEY = localStorage.getItem('OR_KEY');
-        const statusEl = document.getElementById('keyStatus');
-        
-        if(API_KEY) {
-            statusEl.innerText = "LINK_ESTABLISHED";
-            statusEl.className = "text-green-500";
-        }
+<!-- Input -->
+<textarea id="input" class="w-full panel p-2 h-24 resize-none" placeholder="Type your command..."></textarea>
 
-        function resetKey() {
-            localStorage.removeItem('OR_KEY');
-            location.reload();
-        }
+<div class="flex justify-between mt-2">
+  <div id="status">STATUS: IDLE</div>
+  <button id="send" class="border px-4 py-1">SEND</button>
+</div>
 
-        function handleKey(e) {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                runAI();
-            }
-        }
+</div>
 
-        async function runAI() {
-            if (!API_KEY) {
-                const input = prompt("ENTER NEW OPENROUTER API KEY:");
-                if (input) {
-                    localStorage.setItem('OR_KEY', input.trim());
-                    location.reload();
-                }
-                return;
-            }
+<script>
+const output = document.getElementById('output');
+const input = document.getElementById('input');
+const sendBtn = document.getElementById('send');
+const statusEl = document.getElementById('status');
+const purgeBtn = document.getElementById('purge');
 
-            const inputEl = document.getElementById('userInput');
-            const output = document.getElementById('output');
-            const query = inputEl.value.trim();
-            if (!query) return;
+function getKey() {
+  let key = localStorage.getItem('ghost_key');
+  if (!key) {
+    key = prompt('ENTER OPENROUTER API KEY');
+    if (key) localStorage.setItem('ghost_key', key);
+  }
+  return key;
+}
 
-            // Display User Message
-            const uDiv = document.createElement('div');
-            uDiv.className = "flex flex-col items-end";
-            uDiv.innerHTML = `<div class="user-msg px-4 py-2 rounded-sm max-w-[80%] text-sm text-white/80">${query}</div>`;
-            output.appendChild(uDiv);
-            
-            inputEl.value = '';
-            const loading = document.createElement('div');
-            loading.innerHTML = `<span class="text-xs italic text-white/20 animate-pulse">Analyzing_Sequence...</span>`;
-            output.appendChild(loading);
-            output.scrollTop = output.scrollHeight;
+purgeBtn.onclick = () => {
+  localStorage.removeItem('ghost_key');
+  alert('KEY PURGED');
+};
 
-            try {
-                const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-                    method: "POST",
-                    headers: {
-                        "Authorization": `Bearer ${API_KEY}`,
-                        "Content-Type": "application/json",
-                        "HTTP-Referer": window.location.origin, // REQUIRED for OpenRouter
-                        "X-Title": "Ghost_Terminal"
-                    },
-                    body: JSON.stringify({
-                        "model": "openrouter/auto", // Automatically picks a working free model
-                        "messages": [{"role": "user", "content": query}]
-                    })
-                });
+function appendMessage(role, content) {
+  const div = document.createElement('div');
+  div.className = 'mb-3';
 
-                const data = await response.json();
-                loading.remove();
+  if (role === 'user') {
+    div.textContent = '> ' + content;
+  } else {
+    div.innerHTML = marked.parse(content);
+    div.querySelectorAll('pre code').forEach(block => {
+      hljs.highlightElement(block);
+    });
+  }
 
-                if (data.error) throw new Error(data.error.message);
+  output.appendChild(div);
+  output.scrollTop = output.scrollHeight;
+}
 
-                const aiDiv = document.createElement('div');
-                aiDiv.className = "flex flex-col items-start";
-                aiDiv.innerHTML = `
-                    <div class="text-[10px] text-white/20 mb-1 uppercase font-bold tracking-widest">Neural_Response</div>
-                    <div class="text-sm text-white/90 leading-relaxed max-w-[90%] whitespace-pre-wrap">${data.choices[0].message.content}</div>
-                `;
-                output.appendChild(aiDiv);
+async function sendMessage() {
+  const text = input.value.trim();
+  if (!text) return;
 
-            } catch (err) {
-                loading.innerHTML = `<span class="text-red-600 text-xs italic">!! ERROR: ${err.message} !!</span>`;
-                console.error(err);
-            }
-            output.scrollTop = output.scrollHeight;
-        }
-    </script>
+  appendMessage('user', text);
+  input.value = '';
+
+  statusEl.textContent = 'STATUS: TUNNELING...';
+
+  const key = getKey();
+
+  try {
+    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + key,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': window.location.origin
+      },
+      body: JSON.stringify({
+        model: 'openrouter/auto',
+        messages: [{ role: 'user', content: text }]
+      })
+    });
+
+    if (!res.ok) {
+      const err = await res.text();
+      appendMessage('assistant', 'ERROR: ' + err);
+      statusEl.textContent = 'STATUS: ERROR';
+      return;
+    }
+
+    const data = await res.json();
+    const reply = data.choices[0].message.content;
+
+    appendMessage('assistant', reply);
+    statusEl.textContent = 'STATUS: IDLE';
+
+  } catch (e) {
+    appendMessage('assistant', 'NETWORK FAILURE');
+    statusEl.textContent = 'STATUS: ERROR';
+  }
+}
+
+sendBtn.onclick = sendMessage;
+
+input.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+});
+</script>
+
 </body>
 </html>

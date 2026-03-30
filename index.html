@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TERMINAL // AI-CORE-PROX</title>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --neon-cyan: #00f2ff;
+            --bg-dark: #0a0a0c;
+            --panel-bg: rgba(20, 20, 25, 0.8);
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            background-image: 
+                linear-gradient(rgba(0, 242, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 242, 255, 0.03) 1px, transparent 1px);
+            background-size: 30px 30px;
+            font-family: 'IBM Plex Mono', monospace;
+            color: #e0e0e0;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .terminal-border {
+            border: 1px solid rgba(0, 242, 255, 0.2);
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(0, 242, 255, 0.05);
+        }
+
+        .scanline {
+            width: 100%;
+            height: 100px;
+            z-index: 10;
+            background: linear-gradient(0deg, rgba(0, 0, 0, 0) 0%, rgba(0, 242, 255, 0.02) 50%, rgba(0, 0, 0, 0) 100%);
+            opacity: 0.1;
+            position: absolute;
+            bottom: 100%;
+            animation: scanline 8s linear infinite;
+        }
+
+        @keyframes scanline {
+            0% { bottom: 100%; }
+            100% { bottom: -100px; }
+        }
+
+        .status-blink {
+            animation: blink 1.5s step-end infinite;
+        }
+
+        @keyframes blink {
+            50% { opacity: 0; }
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--neon-cyan);
+            box-shadow: 0 0 10px rgba(0, 242, 255, 0.2);
+        }
+
+        #output::-webkit-scrollbar { width: 4px; }
+        #output::-webkit-scrollbar-thumb { background: rgba(0, 242, 255, 0.2); border-radius: 10px; }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center p-6 lg:p-12">
+    <div class="scanline"></div>
+
+    <div class="w-full max-w-4xl flex justify-between mb-2 text-[10px] uppercase tracking-[0.2em] text-cyan-500/60">
+        <div>System: rlxlnmcesiagglmajzwh</div>
+        <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-cyan-500 status-blink"></span>
+            Link Active // Encrypted
+        </div>
+    </div>
+
+    <div class="w-full max-w-4xl h-[70vh] terminal-border bg-[#101014]/90 backdrop-blur-md flex flex-col relative overflow-hidden">
+        
+        <div class="border-b border-white/5 p-4 flex justify-between items-center bg-white/5">
+            <h1 class="text-sm font-semibold tracking-tighter text-cyan-400">COMMAND_UNIT_v4.0</h1>
+            <div class="flex gap-2">
+                <div class="w-3 h-3 border border-cyan-500/30"></div>
+                <div class="w-3 h-3 border border-cyan-500/30"></div>
+            </div>
+        </div>
+
+        <div id="output" class="flex-grow p-6 overflow-y-auto text-sm leading-relaxed text-gray-400 space-y-4">
+            <div class="text-cyan-500/50 italic font-light">// Awaiting sequence input...</div>
+        </div>
+
+        <div class="p-4 bg-black/40 border-t border-white/5">
+            <div class="flex items-center gap-4">
+                <span class="text-cyan-500 font-bold">></span>
+                <input type="text" id="userInput" 
+                    class="flex-grow bg-transparent text-cyan-100 placeholder:text-gray-700 py-2" 
+                    placeholder="ENTER QUERY COMMAND..."
+                    onkeydown="if(event.key === 'Enter') runQuery()">
+                <button onclick="runQuery()" class="bg-cyan-900/30 hover:bg-cyan-500 hover:text-black transition-all border border-cyan-500/50 px-6 py-1 text-xs font-bold uppercase tracking-widest">
+                    Execute
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-4 text-[9px] text-gray-600 uppercase tracking-widest text-center">
+        Unauthorized access is logged // Node: 127.0.0.1 // Supabase Edge Tunneling
+    </div>
+
+    <script>
+        const SB_URL = "https://rlxlnmcesiagglmajzwh.supabase.co/functions/v1/ai-proxy";
+
+        async function runQuery() {
+            const input = document.getElementById('userInput');
+            const output = document.getElementById('output');
+            const query = input.value.trim();
+
+            if (!query) return;
+
+            // Log the user's input to the screen
+            const userEntry = document.createElement('div');
+            userEntry.innerHTML = `<span class="text-cyan-600 font-bold">USER:</span> <span class="text-white">${query}</span>`;
+            output.appendChild(userEntry);
+            
+            input.value = '';
+            const loadingId = "load-" + Date.now();
+            output.innerHTML += `<div id="${loadingId}" class="text-xs animate-pulse text-cyan-800">PROCESSING REQUEST...</div>`;
+            output.scrollTop = output.scrollHeight;
+
+            try {
+                const response = await fetch(SB_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ p: query }) // 'p' matches your Edge Function code
+                });
+
+                const data = await response.json();
+                document.getElementById(loadingId).remove();
+
+                const aiEntry = document.createElement('div');
+                aiEntry.className = "pl-4 border-l-2 border-cyan-500/20 py-1";
+                aiEntry.innerHTML = `<span class="text-cyan-400 font-bold text-[10px] block mb-1">AI_CORE_RESPONSE:</span> ${data.choices[0].message.content}`;
+                output.appendChild(aiEntry);
+
+            } catch (err) {
+                document.getElementById(loadingId).innerHTML = `<span class="text-red-500">CONNECTION_ERROR: Failed to tunnel to Supabase.</span>`;
+            }
+
+            output.scrollTop = output.scrollHeight;
+        }
+    </script>
+</body>
+</html>

@@ -7,21 +7,11 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;500;800&display=swap" rel="stylesheet">
     <style>
-        body {
-            background: #050505;
-            color: #d1d1d1;
-            font-family: 'JetBrains Mono', monospace;
-            overflow: hidden;
-        }
-        .grain {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: url('https://grainy-gradients.vercel.app/noise.svg');
-            opacity: 0.03; pointer-events: none; z-index: 50;
-        }
+        body { background: #050505; color: #d1d1d1; font-family: 'JetBrains Mono', monospace; overflow: hidden; }
+        .grain { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: url('https://grainy-gradients.vercel.app/noise.svg'); opacity: 0.03; pointer-events: none; z-index: 50; }
         .terminal-shadow { box-shadow: 0 0 50px rgba(0,0,0,1), 0 0 20px rgba(255,255,255,0.02); }
-        .cursor-blink { animation: blink 1s step-end infinite; }
-        @keyframes blink { 50% { opacity: 0; } }
         .scroll-hide::-webkit-scrollbar { display: none; }
+        .user-msg { background: rgba(255,255,255,0.05); border-right: 2px solid rgba(255,255,255,0.3); }
     </style>
 </head>
 <body class="h-screen flex items-center justify-center p-4">
@@ -35,7 +25,7 @@
                     <div class="w-2.5 h-2.5 rounded-full bg-orange-900/50"></div>
                     <div class="w-2.5 h-2.5 rounded-full bg-green-900/50"></div>
                 </div>
-                <span class="text-[10px] tracking-[0.3em] text-white/30 font-bold uppercase">OpenRouter Node // Ghost_Protocol</span>
+                <span class="text-[10px] tracking-[0.3em] text-white/30 font-bold uppercase">OpenRouter Node // Vercel_Deploy</span>
             </div>
             <button onclick="resetKey()" class="text-[10px] text-white/20 hover:text-red-500 transition-colors uppercase italic">[ Purge_Key ]</button>
         </div>
@@ -43,7 +33,6 @@
         <div id="output" class="flex-grow overflow-y-auto p-8 space-y-6 scroll-hide">
             <div class="opacity-40 text-xs">
                 > INITIALIZING SECURE_CHANNEL...<br>
-                > ENCRYPTION: AES-256-GCM<br>
                 > STATUS: <span id="keyStatus" class="text-orange-500 underline">AWAITING_AUTH</span>
             </div>
         </div>
@@ -60,7 +49,6 @@
     </div>
 
     <script>
-        // Check for Key in LocalStorage
         let API_KEY = localStorage.getItem('OR_KEY');
         const statusEl = document.getElementById('keyStatus');
         
@@ -74,7 +62,7 @@
             location.reload();
         }
 
-        async function handleKey(e) {
+        function handleKey(e) {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 runAI();
@@ -83,10 +71,9 @@
 
         async function runAI() {
             if (!API_KEY) {
-                const input = prompt("ENTER OPENROUTER API KEY (Stored locally only):");
+                const input = prompt("ENTER NEW OPENROUTER API KEY:");
                 if (input) {
-                    localStorage.setItem('OR_KEY', input);
-                    API_KEY = input;
+                    localStorage.setItem('OR_KEY', input.trim());
                     location.reload();
                 }
                 return;
@@ -100,12 +87,12 @@
             // Display User Message
             const uDiv = document.createElement('div');
             uDiv.className = "flex flex-col items-end";
-            uDiv.innerHTML = `<div class="bg-white/5 px-4 py-2 rounded-sm max-w-[80%] text-sm text-white/80 border-r-2 border-white/20">${query}</div>`;
+            uDiv.innerHTML = `<div class="user-msg px-4 py-2 rounded-sm max-w-[80%] text-sm text-white/80">${query}</div>`;
             output.appendChild(uDiv);
             
             inputEl.value = '';
             const loading = document.createElement('div');
-            loading.innerHTML = `<span class="text-xs italic text-white/20 animate-pulse">Computing_...</span>`;
+            loading.innerHTML = `<span class="text-xs italic text-white/20 animate-pulse">Analyzing_Sequence...</span>`;
             output.appendChild(loading);
             output.scrollTop = output.scrollHeight;
 
@@ -114,10 +101,12 @@
                     method: "POST",
                     headers: {
                         "Authorization": `Bearer ${API_KEY}`,
-                        "Content-Type": "application/json"
+                        "Content-Type": "application/json",
+                        "HTTP-Referer": window.location.origin, // REQUIRED for OpenRouter
+                        "X-Title": "Ghost_Terminal"
                     },
                     body: JSON.stringify({
-                        "model": "google/gemini-2.0-flash-lite-preview-02-05:free",
+                        "model": "openrouter/auto", // Automatically picks a working free model
                         "messages": [{"role": "user", "content": query}]
                     })
                 });
@@ -125,16 +114,19 @@
                 const data = await response.json();
                 loading.remove();
 
+                if (data.error) throw new Error(data.error.message);
+
                 const aiDiv = document.createElement('div');
                 aiDiv.className = "flex flex-col items-start";
                 aiDiv.innerHTML = `
                     <div class="text-[10px] text-white/20 mb-1 uppercase font-bold tracking-widest">Neural_Response</div>
-                    <div class="text-sm text-white/90 leading-relaxed max-w-[90%]">${data.choices[0].message.content}</div>
+                    <div class="text-sm text-white/90 leading-relaxed max-w-[90%] whitespace-pre-wrap">${data.choices[0].message.content}</div>
                 `;
                 output.appendChild(aiDiv);
 
             } catch (err) {
-                loading.innerHTML = `<span class="text-red-900 text-xs italic">!! ACCESS_DENIED: Invalid Key or Network Breach !!</span>`;
+                loading.innerHTML = `<span class="text-red-600 text-xs italic">!! ERROR: ${err.message} !!</span>`;
+                console.error(err);
             }
             output.scrollTop = output.scrollHeight;
         }

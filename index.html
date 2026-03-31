@@ -1,329 +1,40 @@
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Terminal</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Courier New', Courier, monospace;
-            background: #0a0e14;
-            color: #b8bb26;
-            height: 100vh;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .terminal-header {
-            background: #16191f;
-            padding: 8px 16px;
-            border-bottom: 1px solid #282c34;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .terminal-dot {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-        }
-
-        .dot-close { background: #fb4934; }
-        .dot-minimize { background: #fabd2f; }
-        .dot-maximize { background: #b8bb26; }
-
-        .terminal-title {
-            margin-left: 12px;
-            color: #83a598;
-            font-size: 13px;
-        }
-
-        .terminal-body {
-            flex: 1;
-            overflow-y: auto;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-        }
-
-        .terminal-body::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        .terminal-body::-webkit-scrollbar-track {
-            background: #0a0e14;
-        }
-
-        .terminal-body::-webkit-scrollbar-thumb {
-            background: #282c34;
-            border-radius: 4px;
-        }
-
-        .message {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-            animation: fadeIn 0.3s ease-in;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .message-prefix {
-            font-weight: bold;
-            font-size: 13px;
-        }
-
-        .user-prefix {
-            color: #83a598;
-        }
-
-        .assistant-prefix {
-            color: #b8bb26;
-        }
-
-        .system-prefix {
-            color: #fabd2f;
-        }
-
-        .error-prefix {
-            color: #fb4934;
-        }
-
-        .message-content {
-            color: #ebdbb2;
-            line-height: 1.6;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-            padding-left: 16px;
-        }
-
-        .input-container {
-            background: #16191f;
-            border-top: 1px solid #282c34;
-            padding: 16px;
-            display: flex;
-            gap: 12px;
-            align-items: center;
-        }
-
-        .prompt-symbol {
-            color: #b8bb26;
-            font-weight: bold;
-            font-size: 16px;
-        }
-
-        #userInput {
-            flex: 1;
-            background: transparent;
-            border: none;
-            outline: none;
-            color: #ebdbb2;
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 14px;
-            padding: 8px 0;
-        }
-
-        #userInput::placeholder {
-            color: #504945;
-        }
-
-        #sendButton {
-            background: #b8bb26;
-            color: #0a0e14;
-            border: none;
-            padding: 8px 16px;
-            font-family: 'Courier New', Courier, monospace;
-            font-weight: bold;
-            cursor: pointer;
-            border-radius: 4px;
-            transition: all 0.2s;
-        }
-
-        #sendButton:hover {
-            background: #98971a;
-        }
-
-        #sendButton:disabled {
-            background: #504945;
-            cursor: not-allowed;
-        }
-
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.8);
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-        }
-
-        .modal.active {
-            display: flex;
-        }
-
-        .modal-content {
-            background: #16191f;
-            border: 1px solid #282c34;
-            border-radius: 8px;
-            padding: 24px;
-            max-width: 500px;
-            width: 90%;
-        }
-
-        .modal-title {
-            color: #b8bb26;
-            font-size: 18px;
-            margin-bottom: 16px;
-        }
-
-        .modal-input {
-            width: 100%;
-            background: #0a0e14;
-            border: 1px solid #282c34;
-            color: #ebdbb2;
-            padding: 12px;
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 13px;
-            border-radius: 4px;
-            margin-bottom: 16px;
-        }
-
-        .modal-input:focus {
-            outline: none;
-            border-color: #b8bb26;
-        }
-
-        .modal-buttons {
-            display: flex;
-            gap: 12px;
-            justify-content: flex-end;
-        }
-
-        .modal-button {
-            padding: 8px 16px;
-            font-family: 'Courier New', Courier, monospace;
-            font-weight: bold;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .modal-button-primary {
-            background: #b8bb26;
-            color: #0a0e14;
-        }
-
-        .modal-button-primary:hover {
-            background: #98971a;
-        }
-
-        .modal-button-secondary {
-            background: #504945;
-            color: #ebdbb2;
-        }
-
-        .modal-button-secondary:hover {
-            background: #3c3836;
-        }
-
-        .typing-indicator {
-            display: none;
-            align-items: center;
-            gap: 4px;
-            color: #b8bb26;
-            font-size: 13px;
-        }
-
-        .typing-indicator.active {
-            display: flex;
-        }
-
-        .typing-dot {
-            width: 6px;
-            height: 6px;
-            background: #b8bb26;
-            border-radius: 50%;
-            animation: typing 1.4s infinite;
-        }
-
-        .typing-dot:nth-child(2) {
-            animation-delay: 0.2s;
-        }
-
-        .typing-dot:nth-child(3) {
-            animation-delay: 0.4s;
-        }
-
-        @keyframes typing {
-            0%, 60%, 100% { opacity: 0.3; }
-            30% { opacity: 1; }
-        }
-
-        .settings-btn {
-            background: transparent;
-            border: 1px solid #504945;
-            color: #83a598;
-            padding: 6px 12px;
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 12px;
-            cursor: pointer;
-            border-radius: 4px;
-            margin-left: auto;
-            transition: all 0.2s;
-        }
-
-        .settings-btn:hover {
-            border-color: #83a598;
-            background: rgba(131, 165, 152, 0.1);
-        }
-    </style>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div class="terminal-header">
         <div class="terminal-dot dot-close"></div>
         <div class="terminal-dot dot-minimize"></div>
         <div class="terminal-dot dot-maximize"></div>
-        <div class="terminal-title">groq-terminal v1.0</div>
+        <div class="terminal-title">AI Terminal</div>
         <button class="settings-btn" onclick="openSettings()">⚙ Settings</button>
     </div>
-
     <div class="terminal-body" id="terminalBody">
         <div class="message">
             <div class="message-prefix system-prefix">SYSTEM:</div>
-            <div class="message-content">Terminal initialized. Type your message to start chatting.</div>
+            <div class="message-content">Welcome to the AI Terminal!</div>
         </div>
+        <div class="loading-animation" id="loadingAnimation"></div>
     </div>
-
-    <div class="typing-indicator" id="typingIndicator">
-        <span style="margin-right: 4px;">AI:</span>
-        <div class="typing-dot"></div>
-        <div class="typing-dot"></div>
-        <div class="typing-dot"></div>
-    </div>
-
     <div class="input-container">
         <span class="prompt-symbol">></span>
-        <input type="text" id="userInput" placeholder="Enter your message..." autocomplete="off">
+        <input type="text" id="userInput" placeholder="Enter your message...">
         <button id="sendButton" onclick="sendMessage()">SEND</button>
+        <button id="clearConversationButton" onclick="clearConversation()">CLEAR</button>
     </div>
-
+    <div class="settings-menu" id="settingsMenu">
+        <h2>Settings</h2>
+        <ul>
+            <li><a href="#" onclick="toggleDarkMode()">Dark Mode</a></li>
+            <li><a href="#" onclick="toggleLanguage()">Language</a></li>
+        </ul>
+    </div>
     <div class="modal" id="apiKeyModal">
         <div class="modal-content">
             <div class="modal-title">Configure Groq API Key</div>
@@ -334,7 +45,6 @@
             </div>
         </div>
     </div>
-
     <script>
         let conversationHistory = [];
 
@@ -361,11 +71,11 @@
             const modal = document.getElementById('apiKeyModal');
             const input = document.getElementById('apiKeyInput');
             const savedKey = localStorage.getItem('groq_api_key');
-            
+
             if (savedKey) {
                 input.value = savedKey;
             }
-            
+
             modal.classList.add('active');
             input.focus();
         }
@@ -377,7 +87,7 @@
 
         function saveApiKey() {
             const apiKey = document.getElementById('apiKeyInput').value.trim();
-            
+
             if (!apiKey) {
                 addMessage('ERROR: API key cannot be empty', 'error');
                 return;
@@ -399,8 +109,8 @@
 
             const prefix = document.createElement('div');
             prefix.className = 'message-prefix';
-            
-            switch(type) {
+
+            switch (type) {
                 case 'user':
                     prefix.className += ' user-prefix';
                     prefix.textContent = 'USER:';
@@ -490,20 +200,50 @@
                     role: 'assistant',
                     content: aiMessage
                 });
-
             } catch (error) {
                 addMessage(`Failed to get response: ${error.message}`, 'error');
                 console.error('Error:', error);
             } finally {
                 // Hide typing indicator
                 typingIndicator.classList.remove('active');
-                
+
                 // Re-enable input
                 input.disabled = false;
                 sendButton.disabled = false;
                 input.focus();
             }
         }
+
+        function clearConversation() {
+            const terminalBody = document.getElementById('terminalBody');
+            terminalBody.innerHTML = '';
+            conversationHistory = [];
+        }
+
+        function toggleDarkMode() {
+            document.body.classList.toggle('dark-mode');
+        }
+
+        function toggleLanguage() {
+            // TO DO: implement language toggle
+        }
     </script>
+    <style>
+        /* Add styles for the loading animation */
+        .loading-animation {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24px;
+            font-weight: bold;
+            color: #fff;
+        }
+
+        .loading-animation.active {
+            display: block;
+        }
+    </style>
 </body>
 </html>

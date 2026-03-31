@@ -3,250 +3,507 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SILENT CALIBER</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;800&display=swap" rel="stylesheet">
+    <title>AI Terminal</title>
     <style>
-        body {
+        * {
             margin: 0;
             padding: 0;
-            background: #050505;
-            color: #22c55e;
-            font-family: 'JetBrains Mono', monospace;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', Courier, monospace;
+            background: #0a0e14;
+            color: #b8bb26;
+            height: 100vh;
             overflow: hidden;
-            user-select: none;
+            display: flex;
+            flex-direction: column;
         }
 
-        #game-canvas {
-            filter: contrast(1.2) brightness(0.9) saturate(0.5);
+        .terminal-header {
+            background: #16191f;
+            padding: 8px 16px;
+            border-bottom: 1px solid #282c34;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
-        .crt-overlay {
+        .terminal-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .dot-close { background: #fb4934; }
+        .dot-minimize { background: #fabd2f; }
+        .dot-maximize { background: #b8bb26; }
+
+        .terminal-title {
+            margin-left: 12px;
+            color: #83a598;
+            font-size: 13px;
+        }
+
+        .terminal-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .terminal-body::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .terminal-body::-webkit-scrollbar-track {
+            background: #0a0e14;
+        }
+
+        .terminal-body::-webkit-scrollbar-thumb {
+            background: #282c34;
+            border-radius: 4px;
+        }
+
+        .message {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .message-prefix {
+            font-weight: bold;
+            font-size: 13px;
+        }
+
+        .user-prefix {
+            color: #83a598;
+        }
+
+        .assistant-prefix {
+            color: #b8bb26;
+        }
+
+        .system-prefix {
+            color: #fabd2f;
+        }
+
+        .error-prefix {
+            color: #fb4934;
+        }
+
+        .message-content {
+            color: #ebdbb2;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            padding-left: 16px;
+        }
+
+        .input-container {
+            background: #16191f;
+            border-top: 1px solid #282c34;
+            padding: 16px;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .prompt-symbol {
+            color: #b8bb26;
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        #userInput {
+            flex: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: #ebdbb2;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 14px;
+            padding: 8px 0;
+        }
+
+        #userInput::placeholder {
+            color: #504945;
+        }
+
+        #sendButton {
+            background: #b8bb26;
+            color: #0a0e14;
+            border: none;
+            padding: 8px 16px;
+            font-family: 'Courier New', Courier, monospace;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+
+        #sendButton:hover {
+            background: #98971a;
+        }
+
+        #sendButton:disabled {
+            background: #504945;
+            cursor: not-allowed;
+        }
+
+        .modal {
+            display: none;
             position: fixed;
-            inset: 0;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%),
-                        linear-gradient(90deg, rgba(255, 0, 0, 0.02), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.02));
-            background-size: 100% 3px, 3px 100%;
-            pointer-events: none;
-            z-index: 100;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
         }
 
-        .vignette {
-            position: fixed;
-            inset: 0;
-            background: radial-gradient(circle, transparent 30%, rgba(0,0,0,0.9) 120%);
-            pointer-events: none;
-            z-index: 90;
+        .modal.active {
+            display: flex;
         }
 
-        .hud-scanline {
-            animation: scan 8s linear infinite;
+        .modal-content {
+            background: #16191f;
+            border: 1px solid #282c34;
+            border-radius: 8px;
+            padding: 24px;
+            max-width: 500px;
+            width: 90%;
         }
 
-        @keyframes scan {
-            from { transform: translateY(-100%); }
-            to { transform: translateY(100%); }
+        .modal-title {
+            color: #b8bb26;
+            font-size: 18px;
+            margin-bottom: 16px;
         }
 
-        .muzzle-flash {
-            position: fixed;
-            inset: 0;
-            background: white;
-            opacity: 0;
-            pointer-events: none;
-            z-index: 80;
+        .modal-input {
+            width: 100%;
+            background: #0a0e14;
+            border: 1px solid #282c34;
+            color: #ebdbb2;
+            padding: 12px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 13px;
+            border-radius: 4px;
+            margin-bottom: 16px;
+        }
+
+        .modal-input:focus {
+            outline: none;
+            border-color: #b8bb26;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+
+        .modal-button {
+            padding: 8px 16px;
+            font-family: 'Courier New', Courier, monospace;
+            font-weight: bold;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .modal-button-primary {
+            background: #b8bb26;
+            color: #0a0e14;
+        }
+
+        .modal-button-primary:hover {
+            background: #98971a;
+        }
+
+        .modal-button-secondary {
+            background: #504945;
+            color: #ebdbb2;
+        }
+
+        .modal-button-secondary:hover {
+            background: #3c3836;
+        }
+
+        .typing-indicator {
+            display: none;
+            align-items: center;
+            gap: 4px;
+            color: #b8bb26;
+            font-size: 13px;
+        }
+
+        .typing-indicator.active {
+            display: flex;
+        }
+
+        .typing-dot {
+            width: 6px;
+            height: 6px;
+            background: #b8bb26;
+            border-radius: 50%;
+            animation: typing 1.4s infinite;
+        }
+
+        .typing-dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes typing {
+            0%, 60%, 100% { opacity: 0.3; }
+            30% { opacity: 1; }
+        }
+
+        .settings-btn {
+            background: transparent;
+            border: 1px solid #504945;
+            color: #83a598;
+            padding: 6px 12px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 12px;
+            cursor: pointer;
+            border-radius: 4px;
+            margin-left: auto;
+            transition: all 0.2s;
+        }
+
+        .settings-btn:hover {
+            border-color: #83a598;
+            background: rgba(131, 165, 152, 0.1);
         }
     </style>
 </head>
 <body>
+    <div class="terminal-header">
+        <div class="terminal-dot dot-close"></div>
+        <div class="terminal-dot dot-minimize"></div>
+        <div class="terminal-dot dot-maximize"></div>
+        <div class="terminal-title">groq-terminal v1.0</div>
+        <button class="settings-btn" onclick="openSettings()">⚙ Settings</button>
+    </div>
 
-    <div class="crt-overlay"></div>
-    <div class="vignette"></div>
-    <div id="flash" class="muzzle-flash"></div>
-
-    <div class="fixed top-8 left-8 z-[110] opacity-60">
-        <div class="text-[10px] tracking-[0.4em] uppercase mb-2">System Status: Active</div>
-        <div class="h-[2px] w-32 bg-white/10 relative overflow-hidden">
-            <div id="health-bar" class="h-full bg-green-500 w-full transition-all duration-500"></div>
-            <div class="hud-scanline absolute inset-0 bg-white/20 w-full h-[1px]"></div>
+    <div class="terminal-body" id="terminalBody">
+        <div class="message">
+            <div class="message-prefix system-prefix">SYSTEM:</div>
+            <div class="message-content">Terminal initialized. Type your message to start chatting.</div>
         </div>
     </div>
 
-    <div class="fixed bottom-8 right-8 z-[110] text-right">
-        <div id="weapon-name" class="text-xl font-black italic uppercase tracking-tighter text-white/80">M16A4</div>
-        <div class="flex justify-end gap-1 mt-2" id="ammo-pips">
+    <div class="typing-indicator" id="typingIndicator">
+        <span style="margin-right: 4px;">AI:</span>
+        <div class="typing-dot"></div>
+        <div class="typing-dot"></div>
+        <div class="typing-dot"></div>
+    </div>
+
+    <div class="input-container">
+        <span class="prompt-symbol">></span>
+        <input type="text" id="userInput" placeholder="Enter your message..." autocomplete="off">
+        <button id="sendButton" onclick="sendMessage()">SEND</button>
+    </div>
+
+    <div class="modal" id="apiKeyModal">
+        <div class="modal-content">
+            <div class="modal-title">Configure Groq API Key</div>
+            <input type="password" id="apiKeyInput" class="modal-input" placeholder="Enter your Groq API key (gsk_...)">
+            <div class="modal-buttons">
+                <button class="modal-button modal-button-secondary" onclick="closeSettings()">Cancel</button>
+                <button class="modal-button modal-button-primary" onclick="saveApiKey()">Save</button>
             </div>
-        <div class="text-[10px] mt-2 text-white/30 uppercase tracking-widest">Caliber: 5.56x45mm</div>
+        </div>
     </div>
-
-    <div class="fixed bottom-8 left-8 z-[110] opacity-40 text-[10px]">
-        [1] M16A4 - BURST<br>
-        [2] FIVE-SEVEN - SEMI<br>
-        [R] RELOAD<br>
-        [CLICK] FIRE
-    </div>
-
-    <canvas id="game-canvas"></canvas>
 
     <script>
-        const canvas = document.getElementById('game-canvas');
-        const ctx = canvas.getContext('2d');
-        const flashEl = document.getElementById('flash');
-        
-        let width, height;
-        let mouseX = 0, mouseY = 0;
-        let weaponX = 0, weaponY = 0;
-        
-        // Game State
-        const state = {
-            weapon: 'M16A4',
-            ammo: { 'M16A4': 30, 'Five-seveN': 20 },
-            maxAmmo: { 'M16A4': 30, 'Five-seveN': 20 },
-            isFiring: false,
-            lastFire: 0
-        };
+        let conversationHistory = [];
 
-        function init() {
-            resize();
-            createForest();
-            renderAmmo();
-            loop();
-        }
-
-        function resize() {
-            width = canvas.width = window.innerWidth;
-            height = canvas.height = window.innerHeight;
-            weaponX = width / 2;
-            weaponY = height / 2;
-        }
-
-        const trees = [];
-        function createForest() {
-            for(let i=0; i<60; i++) {
-                trees.push({
-                    x: Math.random() * width,
-                    y: Math.random() * height,
-                    size: Math.random() * 100 + 50,
-                    opacity: Math.random() * 0.5 + 0.1
-                });
+        // Check for API key on load
+        window.addEventListener('load', () => {
+            const apiKey = localStorage.getItem('groq_api_key');
+            if (!apiKey) {
+                openSettings();
             }
-        }
 
-        function renderAmmo() {
-            const container = document.getElementById('ammo-pips');
-            container.innerHTML = '';
-            const count = state.ammo[state.weapon];
-            for(let i=0; i < count; i++) {
-                const pip = document.createElement('div');
-                pip.className = 'w-[3px] h-4 bg-green-500/60 shadow-[0_0_8px_rgba(34,197,94,0.4)]';
-                container.appendChild(pip);
-            }
-        }
+            // Focus input
+            document.getElementById('userInput').focus();
 
-        function fire() {
-            const now = Date.now();
-            if (state.ammo[state.weapon] <= 0) return;
-
-            if (state.weapon === 'M16A4') {
-                if (now - state.lastFire < 600) return; // Burst delay
-                state.lastFire = now;
-                
-                // 3 Round Burst Logic
-                for(let i=0; i<3; i++) {
-                    setTimeout(() => {
-                        if(state.ammo['M16A4'] > 0) {
-                            state.ammo['M16A4']--;
-                            triggerEffects(15);
-                            renderAmmo();
-                        }
-                    }, i * 80);
+            // Enter to send
+            document.getElementById('userInput').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
                 }
-            } else {
-                if (now - state.lastFire < 150) return;
-                state.lastFire = now;
-                state.ammo['Five-seveN']--;
-                triggerEffects(8);
-                renderAmmo();
-            }
-        }
+            });
+        });
 
-        function triggerEffects(recoil) {
-            weaponY += recoil; // Mechanical Kick
-            flashEl.style.opacity = '0.3';
-            setTimeout(() => flashEl.style.opacity = '0', 40);
+        function openSettings() {
+            const modal = document.getElementById('apiKeyModal');
+            const input = document.getElementById('apiKeyInput');
+            const savedKey = localStorage.getItem('groq_api_key');
             
-            // Screen shake
-            canvas.style.transform = `translate(${(Math.random()-0.5)*10}px, ${(Math.random()-0.5)*10}px)`;
-            setTimeout(() => canvas.style.transform = 'translate(0,0)', 50);
+            if (savedKey) {
+                input.value = savedKey;
+            }
+            
+            modal.classList.add('active');
+            input.focus();
         }
 
-        function loop() {
-            // Draw Background
-            ctx.fillStyle = '#050605';
-            ctx.fillRect(0, 0, width, height);
+        function closeSettings() {
+            const modal = document.getElementById('apiKeyModal');
+            modal.classList.remove('active');
+        }
 
-            // Interpolate Weapon Position (Inertia)
-            weaponX += (mouseX - weaponX) * 0.08;
-            weaponY += (mouseY - weaponY) * 0.08;
+        function saveApiKey() {
+            const apiKey = document.getElementById('apiKeyInput').value.trim();
+            
+            if (!apiKey) {
+                addMessage('ERROR: API key cannot be empty', 'error');
+                return;
+            }
 
-            // Draw Forest (Simple atmospheric shapes)
-            trees.forEach(tree => {
-                ctx.fillStyle = `rgba(10, 20, 10, ${tree.opacity})`;
-                ctx.fillRect(tree.x - (weaponX*0.05), tree.y - (weaponY*0.05), tree.size/4, tree.size);
+            if (!apiKey.startsWith('gsk_')) {
+                addMessage('WARNING: API key should start with "gsk_"', 'error');
+            }
+
+            localStorage.setItem('groq_api_key', apiKey);
+            closeSettings();
+            addMessage('API key saved successfully', 'system');
+        }
+
+        function addMessage(content, type = 'user') {
+            const terminalBody = document.getElementById('terminalBody');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message';
+
+            const prefix = document.createElement('div');
+            prefix.className = 'message-prefix';
+            
+            switch(type) {
+                case 'user':
+                    prefix.className += ' user-prefix';
+                    prefix.textContent = 'USER:';
+                    break;
+                case 'assistant':
+                    prefix.className += ' assistant-prefix';
+                    prefix.textContent = 'AI:';
+                    break;
+                case 'system':
+                    prefix.className += ' system-prefix';
+                    prefix.textContent = 'SYSTEM:';
+                    break;
+                case 'error':
+                    prefix.className += ' error-prefix';
+                    prefix.textContent = 'ERROR:';
+                    break;
+            }
+
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'message-content';
+            contentDiv.textContent = content;
+
+            messageDiv.appendChild(prefix);
+            messageDiv.appendChild(contentDiv);
+            terminalBody.appendChild(messageDiv);
+
+            // Scroll to bottom
+            terminalBody.scrollTop = terminalBody.scrollHeight;
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('userInput');
+            const sendButton = document.getElementById('sendButton');
+            const message = input.value.trim();
+
+            if (!message) return;
+
+            const apiKey = localStorage.getItem('groq_api_key');
+            if (!apiKey) {
+                addMessage('Please configure your API key first', 'error');
+                openSettings();
+                return;
+            }
+
+            // Add user message
+            addMessage(message, 'user');
+            conversationHistory.push({
+                role: 'user',
+                content: message
             });
 
-            // Draw Weapon Silhouette
-            ctx.save();
-            ctx.translate(weaponX, weaponY);
-            
-            // The Gun "Shadow"
-            ctx.fillStyle = '#0a0a0a';
-            if (state.weapon === 'M16A4') {
-                ctx.fillRect(20, 40, 300, 40); // Barrel
-                ctx.fillRect(0, 20, 100, 80);  // Body
-            } else {
-                ctx.fillRect(10, 20, 120, 35); // Five-seven slide
-                ctx.fillRect(10, 20, 40, 90);  // Grip
-            }
-            
-            // Iron Sights / Laser
-            ctx.fillStyle = 'rgba(255, 0, 0, 0.2)';
-            ctx.beginPath();
-            ctx.arc(0, 0, 2, 0, Math.PI * 2);
-            ctx.fill();
-            
-            ctx.restore();
+            // Clear input and disable
+            input.value = '';
+            input.disabled = true;
+            sendButton.disabled = true;
 
-            requestAnimationFrame(loop);
+            // Show typing indicator
+            const typingIndicator = document.getElementById('typingIndicator');
+            typingIndicator.classList.add('active');
+
+            try {
+                const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        model: 'llama-3.3-70b-versatile',
+                        messages: conversationHistory,
+                        temperature: 0.7,
+                        max_tokens: 2048
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error?.message || 'API request failed');
+                }
+
+                const data = await response.json();
+                const aiMessage = data.choices[0].message.content;
+
+                // Add AI response
+                addMessage(aiMessage, 'assistant');
+                conversationHistory.push({
+                    role: 'assistant',
+                    content: aiMessage
+                });
+
+            } catch (error) {
+                addMessage(`Failed to get response: ${error.message}`, 'error');
+                console.error('Error:', error);
+            } finally {
+                // Hide typing indicator
+                typingIndicator.classList.remove('active');
+                
+                // Re-enable input
+                input.disabled = false;
+                sendButton.disabled = false;
+                input.focus();
+            }
         }
-
-        // Listeners
-        window.addEventListener('mousemove', (e) => {
-            mouseX = e.clientX;
-            mouseY = e.clientY;
-        });
-
-        window.addEventListener('mousedown', fire);
-
-        window.addEventListener('keydown', (e) => {
-            if (e.key === '1') {
-                state.weapon = 'M16A4';
-                document.getElementById('weapon-name').innerText = 'M16A4';
-                renderAmmo();
-            }
-            if (e.key === '2') {
-                state.weapon = 'Five-seveN';
-                document.getElementById('weapon-name').innerText = 'Five-seveN';
-                renderAmmo();
-            }
-            if (e.key.toLowerCase() === 'r') {
-                state.ammo[state.weapon] = state.maxAmmo[state.weapon];
-                renderAmmo();
-            }
-        });
-
-        window.addEventListener('resize', resize);
-        init();
     </script>
 </body>
 </html>
